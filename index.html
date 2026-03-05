@@ -53,6 +53,22 @@
     tbody tr td:last-child {
       text-align: center;
     }
+
+    tr.summary-row td {
+      background-color: #F9F9F9;
+      font-weight: bold;
+      border: 1px solid #D0D0D0;
+      padding: 3px 6px;
+      text-align: right;
+    }
+
+    tr.summary-row td:first-child {
+      text-align: left;
+    }
+
+    tr.summary-row td:last-child {
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -71,8 +87,99 @@
         <th>Edit</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="summary-body">
+      <tr class="summary-row">
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td id="sum-avg-cost"></td>
+        <td></td>
+        <td id="sum-value"></td>
+        <td id="sum-pnl"></td>
+        <td id="sum-return"></td>
+        <td></td>
+      </tr>
+    </tbody>
+    <tbody id="holdings-body">
     </tbody>
   </table>
+
+  <script>
+    const STORAGE_KEY = 'stock_monitor_holdings';
+    const MAX_HOLDINGS = 10;
+
+    // holdings 배열: [{code, quantity, avgPrice}]
+    let holdings = [];
+
+    function saveHoldings() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
+    }
+
+    function loadHoldings() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          holdings = JSON.parse(raw);
+        } catch (e) {
+          holdings = [];
+        }
+      } else {
+        holdings = [];
+      }
+    }
+
+    function formatNumber(n) {
+      return n.toLocaleString('ko-KR');
+    }
+
+    function getPnlColor(value) {
+      if (value > 0) return '#C51F2A';
+      if (value < 0) return '#002452';
+      return '#000000';
+    }
+
+    function renderSummary() {
+      const totalCost = holdings.reduce((acc, h) => acc + h.avgPrice * h.quantity, 0);
+
+      // 현재가 데이터가 없으므로 평가금액/손익/수익률은 공란
+      document.getElementById('sum-avg-cost').textContent = totalCost > 0 ? formatNumber(totalCost) : '';
+      document.getElementById('sum-avg-cost').style.color = '#000000';
+
+      document.getElementById('sum-value').textContent = '';
+      document.getElementById('sum-pnl').textContent = '';
+      document.getElementById('sum-return').textContent = '';
+    }
+
+    function renderHoldings() {
+      const tbody = document.getElementById('holdings-body');
+      tbody.innerHTML = '';
+
+      holdings.forEach(function(h, idx) {
+        const tr = document.createElement('tr');
+
+        const totalCost = h.avgPrice * h.quantity;
+
+        tr.innerHTML =
+          '<td></td>' +
+          '<td style="text-align:right">' + h.code + '</td>' +
+          '<td></td>' +
+          '<td></td>' +
+          '<td>' + formatNumber(h.avgPrice) + '</td>' +
+          '<td>' + formatNumber(h.quantity) + '</td>' +
+          '<td></td>' +
+          '<td></td>' +
+          '<td></td>' +
+          '<td></td>';
+
+        tbody.appendChild(tr);
+      });
+
+      renderSummary();
+    }
+
+    loadHoldings();
+    renderHoldings();
+  </script>
 </body>
 </html>
