@@ -157,6 +157,33 @@
     #btn-add:hover {
       background-color: #F2F2F2;
     }
+
+    #footer-bar {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #last-updated {
+      font-size: 11px;
+      color: #999999;
+    }
+
+    #btn-refresh {
+      background: none;
+      border: none;
+      color: #BBBBBB;
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+
+    #btn-refresh:hover {
+      color: #888888;
+    }
   </style>
 </head>
 <body>
@@ -183,15 +210,20 @@
     <button id="btn-add">+ 종목 추가</button>
   </div>
 
+  <div id="footer-bar">
+    <span id="last-updated"></span>
+    <button id="btn-refresh">↻ 조회</button>
+  </div>
+
   <script>
     const STORAGE_KEY = 'stock_monitor_holdings';
     const MAX_HOLDINGS = 10;
 
-    // holdings 배열: [{code, quantity, avgPrice}]
     let holdings = [];
-
-    // 편집 상태: null이면 편집 없음, 'new'면 신규 추가, 숫자면 해당 인덱스 편집
     let editingIndex = null;
+
+    // code → {itemName, price, diff, diffRate}
+    let priceData = {};
 
     function saveHoldings() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
@@ -200,11 +232,8 @@
     function loadHoldings() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        try {
-          holdings = JSON.parse(raw);
-        } catch (e) {
-          holdings = [];
-        }
+        try { holdings = JSON.parse(raw); }
+        catch (e) { holdings = []; }
       } else {
         holdings = [];
       }
@@ -220,6 +249,52 @@
       return '#000000';
     }
 
+    function formatDiff(diff, diffRate) {
+      const sign = diff > 0 ? '+' : '';
+      return sign + formatNumber(Math.round(diff)) +
+             ' (' + sign + diffRate.toFixed(2) + '%)';
+    }
+
+    // ── 현재가 조회 ──────────────────────────────────────────
+    async function fetchPrice(code) {
+      const url = 'https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/' + code + '.KS';
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('http ' + res.status);
+        const json = await res.json();
+        const meta = json.chart.result[0].meta;
+        const price    = meta.regularMarketPrice;
+        const prevClose = meta.previousClose;
+        const diff     = price - prevClose;
+        const diffRate = diff / prevClose * 100;
+        const itemName = meta.longName || meta.shortName || code;
+        return { itemName, price, diff, diffRate };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function fetchAll() {
+      for (let i = 0; i < holdings.length; i++) {
+        const code = holdings[i].code;
+        const result = await fetchPrice(code);
+        if (result) {
+          priceData[code] = result;
+        } else {
+          priceData[code] = null;  // 조회불가 표시용
+        }
+        renderTable();  // 종목별로 조회 완료 즉시 반영
+      }
+
+      // 마지막 조회 시각 업데이트
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('last-updated').textContent = hh + ':' + mm + ':' + ss;
+    }
+
+    // ── 렌더링 ───────────────────────────────────────────────
     function renderSummary() {
       const tbody = document.getElementById('summary-body');
 
@@ -227,7 +302,27 @@
         return acc + h.avgPrice * h.quantity;
       }, 0);
 
-      const costText = totalCost > 0 ? formatNumber(totalCost) : '';
+      let totalValue = 0;
+      let hasAllPrices = holdings.length > 0;
+      holdings.forEach(function(h) {
+        const pd = priceData[h.code];
+        if (pd) {
+          totalValue += pd.price * h.quantity;
+        } else {
+          hasAllPrices = false;
+        }
+      });
+
+      const costText  = totalCost  > 0 ? formatNumber(totalCost)  : '';
+      const valueText = hasAllPrices && totalValue > 0 ? formatNumber(Math.round(totalValue)) : '';
+
+      let pnlText = '', pnlColor = '#000000', returnText = '';
+      if (hasAllPrices && totalCost > 0 && totalValue > 0) {
+        const pnl = totalValue - totalCost;
+        pnlColor = getPnlColor(pnl);
+        pnlText  = (pnl >= 0 ? '+' : '') + formatNumber(Math.round(pnl));
+        returnText = (pnl >= 0 ? '+' : '') + (pnl / totalCost * 100).toFixed(2) + '%';
+      }
 
       tbody.innerHTML =
         '<tr class="summary-row">' +
@@ -237,9 +332,9 @@
           '<td></td>' +
           '<td style="color:#000000">' + costText + '</td>' +
           '<td></td>' +
-          '<td></td>' +
-          '<td></td>' +
-          '<td></td>' +
+          '<td>' + valueText + '</td>' +
+          '<td style="color:' + pnlColor + '">' + pnlText + '</td>' +
+          '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
           '<td></td>' +
         '</tr>';
     }
@@ -285,25 +380,55 @@
           return;
         }
 
-        const tr = document.createElement('tr');
+        const pd = priceData[h.code];
         const editDisabled = isEditing ? ' disabled' : '';
+
+        let nameText    = pd ? pd.itemName : '';
+        let currentText = '-';
+        let currentColor = '#000000';
+        let diffText    = '-';
+        let diffColor   = '#000000';
+        let valueText   = '';
+        let pnlText     = '';
+        let pnlColor    = '#000000';
+        let returnText  = '';
+
+        if (pd === null) {
+          // 조회 시도했으나 실패
+          currentText  = '조회불가';
+          currentColor = '#999999';
+          diffText     = '';
+        } else if (pd) {
+          currentText  = formatNumber(pd.price);
+          currentColor = getPnlColor(pd.diff);
+          diffText     = formatDiff(pd.diff, pd.diffRate);
+          diffColor    = getPnlColor(pd.diff);
+
+          const value = pd.price * h.quantity;
+          const pnl   = value - h.avgPrice * h.quantity;
+          valueText  = formatNumber(Math.round(value));
+          pnlText    = (pnl >= 0 ? '+' : '') + formatNumber(Math.round(pnl));
+          pnlColor   = getPnlColor(pnl);
+          returnText = (pnl >= 0 ? '+' : '') + (pnl / (h.avgPrice * h.quantity) * 100).toFixed(2) + '%';
+        }
+
+        const tr = document.createElement('tr');
         tr.innerHTML =
-          '<td></td>' +
+          '<td>' + nameText + '</td>' +
           '<td>' + h.code + '</td>' +
-          '<td>-</td>' +
-          '<td>-</td>' +
+          '<td style="color:' + currentColor + '">' + currentText + '</td>' +
+          '<td style="color:' + diffColor + '">' + diffText + '</td>' +
           '<td>' + formatNumber(h.avgPrice) + '</td>' +
           '<td>' + formatNumber(h.quantity) + '</td>' +
-          '<td></td>' +
-          '<td></td>' +
-          '<td></td>' +
+          '<td>' + valueText + '</td>' +
+          '<td style="color:' + pnlColor + '">' + pnlText + '</td>' +
+          '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
           '<td style="text-align:center">' +
             '<button class="btn-row-edit"' + editDisabled + ' onclick="startEdit(' + idx + ')">Edit</button>' +
           '</td>';
         tbody.appendChild(tr);
       });
 
-      // 신규 추가 편집 행
       if (editingIndex === 'new') {
         tbody.appendChild(makeEditRow('', '', '', true));
       }
@@ -311,7 +436,6 @@
 
     function renderAddButton() {
       const wrap = document.getElementById('btn-add-wrap');
-      // 편집 중이거나 MAX 초과 시 숨김
       wrap.style.display = (editingIndex === null && holdings.length < MAX_HOLDINGS) ? '' : 'none';
     }
 
@@ -321,6 +445,7 @@
       renderAddButton();
     }
 
+    // ── 편집 핸들러 ──────────────────────────────────────────
     function startEdit(idx) {
       if (editingIndex !== null) return;
       editingIndex = idx;
@@ -367,6 +492,7 @@
       renderTable();
     }
 
+    // ── 이벤트 바인딩 ────────────────────────────────────────
     document.getElementById('btn-add').addEventListener('click', function() {
       if (editingIndex !== null || holdings.length >= MAX_HOLDINGS) return;
       editingIndex = 'new';
@@ -375,8 +501,17 @@
       if (codeEl) codeEl.focus();
     });
 
+    document.getElementById('btn-refresh').addEventListener('click', function() {
+      if (holdings.length === 0) return;
+      fetchAll();
+    });
+
+    // ── 초기화 ───────────────────────────────────────────────
     loadHoldings();
     renderTable();
+    if (holdings.length > 0) {
+      fetchAll();
+    }
   </script>
 </body>
 </html>
