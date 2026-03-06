@@ -18,7 +18,7 @@
     table { border-collapse: collapse; width: 100%; }
 
     thead tr th {
-      background-color: #F2F2F2;
+      background-color: #E0E0E0; /* [2] #F2F2F2 → #E0E0E0 */
       border: 1px solid #D0D0D0;
       padding: 3px 6px;
       text-align: right;
@@ -39,10 +39,12 @@
     tbody#holdings-body tr:not(.edit-row) td:first-child { text-align: left; }
     tbody#holdings-body tr:not(.edit-row) td:last-child  { text-align: center; }
 
-    /* hover: 편집 행 제외 */
-    tbody#holdings-body tr:not(.edit-row):hover td {
+    /* hover: sub-row 제외 */
+    tbody#holdings-body tr:not(.edit-row):not(.sub-row):hover td {
       background-color: #EEF0F2;
     }
+    /* JS-driven 연동 hover (sub-row용) */
+    .row-hover td { background-color: #EEF0F2; }
 
     /* ── summary 행 (hover 없음) ── */
     tr.summary-row td {
@@ -114,7 +116,6 @@
       align-items: center;
     }
 
-    #btn-add-wrap { /* 왼쪽 */ }
     #btn-add {
       background: none;
       border: 1px solid #B0B0B0;
@@ -155,6 +156,7 @@
         <th>Change</th>
         <th>Avg.Cost</th>
         <th>Qty</th>
+        <th>Buy.Cost</th><!-- [3] 추가 -->
         <th>Value</th>
         <th>P&amp;L</th>
         <th>Return</th>
@@ -167,7 +169,7 @@
 
   <div id="bottom-bar">
     <div id="btn-add-wrap">
-      <button id="btn-add">+ 종목 추가</button>
+      <button id="btn-add">Add</button><!-- [1] 텍스트 변경 -->
     </div>
     <div id="right-controls">
       <span id="last-updated"></span>
@@ -222,6 +224,11 @@
       return '#000000';
     }
 
+    // ── 반응형 판별 ───────────────────────────────────────────
+    function isNarrow() {
+      return window.innerWidth <= 900;
+    }
+
     // ── 현재가 조회 ───────────────────────────────────────────
     async function fetchPrice(code) {
       const url = 'https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/' + code + '.KS';
@@ -263,7 +270,7 @@
 
       // 총 평가금액: 조회된 종목만 합산
       let totalValue   = 0;
-      let valueCovered = 0; // 현재가 있는 종목 수
+      let valueCovered = 0;
       holdings.forEach(function(h) {
         const pd = priceData[h.code];
         if (pd) { totalValue += pd.price * h.quantity; valueCovered++; }
@@ -282,21 +289,48 @@
         returnText = formatRate(pnl / totalCost * 100);
       }
 
-      document.getElementById('summary-body').innerHTML =
-        '<tr class="summary-row">' +
-          '<td></td>' +
-          '<td></td>' +
-          '<td></td>' +
-          '<td></td>' +
-          '<td style="color:#000000">' + costText  + '</td>' +
-          '<td></td>' +
-          '<td style="color:#000000">' + valueText + '</td>' +
-          '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' +
-          '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
-          '<td></td>' +
-        '</tr>';
+      // [3] Buy.Cost 열 추가: 총 매입금액을 Avg.Cost 위치 → Buy.Cost 위치로 이동
+      // 열 순서(11개): Name / Code / Current / Change / Avg.Cost(공란) / Qty / Buy.Cost / Value / P&L / Return / Edit
+      const narrow = isNarrow();
+      let html = '';
+
+      if (!narrow) {
+        // 단일 행
+        html =
+          '<tr class="summary-row">' +
+            '<td></td>' +
+            '<td></td>' +
+            '<td></td>' +
+            '<td></td>' +
+            '<td></td>' +                                                   // Avg.Cost 공란
+            '<td></td>' +                                                   // Qty 공란
+            '<td style="color:#000000">' + costText  + '</td>' +           // Buy.Cost
+            '<td style="color:#000000">' + valueText + '</td>' +           // Value
+            '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' + // P&L
+            '<td style="color:' + pnlColor + '">' + returnText + '</td>' + // Return
+            '<td></td>' +
+          '</tr>';
+      } else {
+        // [4] 2줄: row1 전부 공란, row2에 수치
+        html =
+          '<tr class="summary-row">' +
+            '<td></td><td></td><td></td><td></td><td></td>' +
+            '<td></td><td></td><td></td><td></td><td></td><td></td>' +
+          '</tr>' +
+          '<tr class="summary-row">' +
+            '<td></td><td></td><td></td><td></td><td></td><td></td>' +
+            '<td style="color:#000000">' + costText  + '</td>' +
+            '<td style="color:#000000">' + valueText + '</td>' +
+            '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' +
+            '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
+            '<td></td>' +
+          '</tr>';
+      }
+
+      document.getElementById('summary-body').innerHTML = html;
     }
 
+    // [3] makeEditRow: 11열 (Buy.Cost 위치에 빈 td 추가)
     function makeEditRow(code, qty, avgCost, isNew) {
       const tr = document.createElement('tr');
       tr.className = 'edit-row';
@@ -308,7 +342,10 @@
         '<td style="text-align:right;color:#999999">-</td>' +
         '<td><input id="edit-cost" type="number" min="1"       value="' + (avgCost|| '') + '" placeholder="평균단가"></td>' +
         '<td><input id="edit-qty"  type="number" min="1"       value="' + (qty    || '') + '" placeholder="수량"></td>' +
-        '<td></td><td></td><td></td>' +
+        '<td></td>' +                                                      // Buy.Cost 빈 td
+        '<td></td>' +
+        '<td></td>' +
+        '<td></td>' +
         '<td><div class="edit-btn-group">' +
           '<button onclick="handleSave()">Save</button>' +
           '<button onclick="handleCancel()">Cancel</button>' +
@@ -321,6 +358,7 @@
       const tbody    = document.getElementById('holdings-body');
       tbody.innerHTML = '';
       const isEditing = editingIndex !== null;
+      const narrow    = isNarrow();
 
       holdings.forEach(function(h, idx) {
         if (editingIndex === idx) {
@@ -332,20 +370,18 @@
         const dis = isEditing ? ' disabled' : '';
 
         // 기본값
-        let nameText     = '';
-        let curText      = '-', curColor  = '#000000';
-        let diffText     = '-', diffColor = '#000000';
-        let valueText    = '';
-        let pnlText      = '', pnlColor   = '#000000';
-        let returnText   = '';
+        let nameText   = '';
+        let curText    = '-', curColor  = '#000000';
+        let diffText   = '-', diffColor = '#000000';
+        let valueText  = '';
+        let pnlText    = '', pnlColor   = '#000000';
+        let returnText = '';
 
         if (pd === null) {
-          // 조회 실패
           curText  = '조회불가';
           curColor = '#999999';
           diffText = '';
         } else if (pd !== undefined) {
-          // 조회 성공
           nameText  = pd.itemName;
           curText   = formatNumber(pd.price);
           curColor  = getPnlColor(pd.diff);
@@ -361,21 +397,62 @@
           returnText = formatRate(pnl / cost * 100);
         }
 
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td>' + nameText + '</td>' +
-          '<td>' + h.code  + '</td>' +
-          '<td style="color:' + curColor  + '">' + curText    + '</td>' +
-          '<td style="color:' + diffColor + '">' + diffText   + '</td>' +
-          '<td style="color:#000000">'            + formatNumber(h.avgPrice) + '</td>' +
-          '<td style="color:#000000">'            + formatNumber(h.quantity) + '</td>' +
-          '<td style="color:#000000">'            + valueText  + '</td>' +
-          '<td style="color:' + pnlColor  + '">' + pnlText    + '</td>' +
-          '<td style="color:' + pnlColor  + '">' + returnText + '</td>' +
+        // [3] Buy.Cost = Avg.Cost × Qty, 항상 표시
+        const buyCostText = formatNumber(h.avgPrice * h.quantity);
+
+        const editBtn =
           '<td style="text-align:center">' +
             '<button class="btn-row-edit"' + dis + ' onclick="startEdit(' + idx + ')">Edit</button>' +
           '</td>';
-        tbody.appendChild(tr);
+
+        if (!narrow) {
+          // 단일 행 (11열)
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + nameText + '</td>' +
+            '<td>' + h.code  + '</td>' +
+            '<td style="color:' + curColor  + '">' + curText    + '</td>' +
+            '<td style="color:' + diffColor + '">' + diffText   + '</td>' +
+            '<td style="color:#000000">' + formatNumber(h.avgPrice) + '</td>' +
+            '<td style="color:#000000">' + formatNumber(h.quantity) + '</td>' +
+            '<td style="color:#000000">' + buyCostText + '</td>' +
+            '<td style="color:#000000">' + valueText   + '</td>' +
+            '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' +
+            '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
+            editBtn;
+          tbody.appendChild(tr);
+        } else {
+          // [4] 2줄 렌더링
+          // 1번 tr: Name/Code/Current/Change/Avg.Cost/Qty 표시, 나머지 공란, Edit
+          const tr1 = document.createElement('tr');
+          tr1.innerHTML =
+            '<td>' + nameText + '</td>' +
+            '<td>' + h.code  + '</td>' +
+            '<td style="color:' + curColor  + '">' + curText  + '</td>' +
+            '<td style="color:' + diffColor + '">' + diffText + '</td>' +
+            '<td style="color:#000000">' + formatNumber(h.avgPrice) + '</td>' +
+            '<td style="color:#000000">' + formatNumber(h.quantity) + '</td>' +
+            '<td></td><td></td><td></td><td></td>' +
+            editBtn;
+
+          // 2번 tr: 빈셀 6개 + Buy.Cost/Value/P&L/Return/빈셀, hover 없음
+          const tr2 = document.createElement('tr');
+          tr2.className = 'sub-row';
+          tr2.innerHTML =
+            '<td></td><td></td><td></td><td></td><td></td><td></td>' +
+            '<td style="color:#000000">' + buyCostText + '</td>' +
+            '<td style="color:#000000">' + valueText   + '</td>' +
+            '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' +
+            '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
+            '<td></td>';
+
+          // [4] tr1 hover 시 tr2도 하이라이트 (JS 처리)
+          tr1.addEventListener('mouseover', function() { tr2.classList.add('row-hover'); });
+          tr1.addEventListener('mouseout',  function() { tr2.classList.remove('row-hover'); });
+
+          tbody.appendChild(tr1);
+          tbody.appendChild(tr2);
+        }
       });
 
       if (editingIndex === 'new') {
@@ -451,6 +528,16 @@
     document.getElementById('btn-refresh').addEventListener('click', function() {
       if (holdings.length === 0) return;
       fetchAll();
+    });
+
+    // [4] 900px 기준 전환 시 renderTable() 재호출
+    var _wasNarrow = isNarrow();
+    window.addEventListener('resize', function() {
+      var narrow = isNarrow();
+      if (narrow !== _wasNarrow) {
+        _wasNarrow = narrow;
+        renderTable();
+      }
     });
 
     // ── 초기화 ────────────────────────────────────────────────
