@@ -5,22 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>업무현황</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       background-color: #FFFFFF;
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
       font-size: 12px;
+      padding: 8px;
     }
 
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
+    /* ── 테이블 기본 ── */
+    table { border-collapse: collapse; width: 100%; }
 
     thead tr th {
       background-color: #F2F2F2;
@@ -30,52 +25,43 @@
       font-weight: normal;
       white-space: nowrap;
     }
+    thead tr th:first-child { text-align: left; }
+    thead tr th:last-child  { text-align: center; }
 
-    thead tr th:first-child {
-      text-align: left;
-    }
-
-    thead tr th:last-child {
-      text-align: center;
-    }
-
-    tbody tr td {
+    /* ── 일반 행 ── */
+    tbody#holdings-body tr:not(.edit-row) td {
       background-color: #FFFFFF;
       border: 1px solid #D0D0D0;
       padding: 3px 6px;
       text-align: right;
+      white-space: nowrap;
+    }
+    tbody#holdings-body tr:not(.edit-row) td:first-child { text-align: left; }
+    tbody#holdings-body tr:not(.edit-row) td:last-child  { text-align: center; }
+
+    /* hover: 편집 행 제외 */
+    tbody#holdings-body tr:not(.edit-row):hover td {
+      background-color: #EEF0F2;
     }
 
-    tbody tr td:first-child {
-      text-align: left;
-    }
-
-    tbody tr td:last-child {
-      text-align: center;
-    }
-
+    /* ── summary 행 (hover 없음) ── */
     tr.summary-row td {
       background-color: #F9F9F9;
       font-weight: bold;
       border: 1px solid #D0D0D0;
       padding: 3px 6px;
       text-align: right;
+      white-space: nowrap;
     }
+    tr.summary-row td:first-child { text-align: left; }
+    tr.summary-row td:last-child  { text-align: center; }
 
-    tr.summary-row td:first-child {
-      text-align: left;
-    }
-
-    tr.summary-row td:last-child {
-      text-align: center;
-    }
-
+    /* ── 편집 행 ── */
     tr.edit-row td {
       background-color: #FFFDE7;
       border: 1px solid #D0D0D0;
       padding: 3px 6px;
     }
-
     tr.edit-row input {
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
       font-size: 12px;
@@ -85,18 +71,15 @@
       text-align: right;
       background-color: #FFFFFF;
     }
+    tr.edit-row input:focus { outline: 1px solid #888888; }
 
-    tr.edit-row input:focus {
-      outline: 1px solid #888888;
-    }
-
+    /* ── 편집 버튼 그룹 ── */
     .edit-btn-group {
       display: flex;
       gap: 3px;
       justify-content: center;
       white-space: nowrap;
     }
-
     .edit-btn-group button {
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
       font-size: 11px;
@@ -106,20 +89,11 @@
       background: none;
       color: #333333;
     }
+    .edit-btn-group button:hover { background-color: #F2F2F2; }
+    .edit-btn-group button.btn-delete { color: #C51F2A; border-color: #C51F2A; }
+    .edit-btn-group button.btn-delete:hover { background-color: #FFF0F0; }
 
-    .edit-btn-group button:hover {
-      background-color: #F2F2F2;
-    }
-
-    .edit-btn-group button.btn-delete {
-      color: #C51F2A;
-      border-color: #C51F2A;
-    }
-
-    .edit-btn-group button.btn-delete:hover {
-      background-color: #FFF0F0;
-    }
-
+    /* ── 행별 Edit 버튼 ── */
     .btn-row-edit {
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
       font-size: 11px;
@@ -129,21 +103,18 @@
       background: none;
       color: #333333;
     }
+    .btn-row-edit:hover:not(:disabled) { background-color: #F2F2F2; }
+    .btn-row-edit:disabled { color: #B0B0B0; border-color: #D0D0D0; cursor: default; }
 
-    .btn-row-edit:hover:not(:disabled) {
-      background-color: #F2F2F2;
-    }
-
-    .btn-row-edit:disabled {
-      color: #B0B0B0;
-      border-color: #D0D0D0;
-      cursor: default;
-    }
-
-    #btn-add-wrap {
+    /* ── 하단 바 ── */
+    #bottom-bar {
       margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
+    #btn-add-wrap { /* 왼쪽 */ }
     #btn-add {
       background: none;
       border: 1px solid #B0B0B0;
@@ -153,37 +124,25 @@
       padding: 3px 10px;
       cursor: pointer;
     }
+    #btn-add:hover { background-color: #F2F2F2; }
 
-    #btn-add:hover {
-      background-color: #F2F2F2;
-    }
-
-    #footer-bar {
-      margin-top: 8px;
+    #right-controls {
       display: flex;
-      justify-content: flex-end;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
-
-    #last-updated {
-      font-size: 11px;
-      color: #999999;
-    }
-
+    #last-updated { font-size: 11px; color: #999999; }
     #btn-refresh {
       background: none;
       border: none;
-      color: #BBBBBB;
+      color: #CCCCCC;
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
       font-size: 11px;
       cursor: pointer;
-      padding: 2px 4px;
+      padding: 2px 2px;
+      letter-spacing: -0.5px;
     }
-
-    #btn-refresh:hover {
-      color: #888888;
-    }
+    #btn-refresh:hover { color: #888888; }
   </style>
 </head>
 <body>
@@ -206,56 +165,64 @@
     <tbody id="holdings-body"></tbody>
   </table>
 
-  <div id="btn-add-wrap">
-    <button id="btn-add">+ 종목 추가</button>
-  </div>
-
-  <div id="footer-bar">
-    <span id="last-updated"></span>
-    <button id="btn-refresh">↻ 조회</button>
+  <div id="bottom-bar">
+    <div id="btn-add-wrap">
+      <button id="btn-add">+ 종목 추가</button>
+    </div>
+    <div id="right-controls">
+      <span id="last-updated"></span>
+      <button id="btn-refresh">↻ 조회</button>
+    </div>
   </div>
 
   <script>
     const STORAGE_KEY = 'stock_monitor_holdings';
     const MAX_HOLDINGS = 10;
 
-    let holdings = [];
+    let holdings    = [];
     let editingIndex = null;
+    // code → {itemName, price, diff, diffRate} | null(조회실패) | undefined(미조회)
+    let priceData   = {};
 
-    // code → {itemName, price, diff, diffRate}
-    let priceData = {};
-
+    // ── 저장/복원 ─────────────────────────────────────────────
     function saveHoldings() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
     }
 
     function loadHoldings() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        try { holdings = JSON.parse(raw); }
-        catch (e) { holdings = []; }
-      } else {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        holdings = raw ? JSON.parse(raw) : [];
+      } catch (e) {
         holdings = [];
       }
     }
 
+    // ── 포맷 함수 ─────────────────────────────────────────────
     function formatNumber(n) {
-      return n.toLocaleString('ko-KR');
+      return Math.round(n).toLocaleString('ko-KR');
     }
 
-    function getPnlColor(value) {
-      if (value > 0) return '#C51F2A';
-      if (value < 0) return '#002452';
+    function formatDiff(diff, rate) {
+      const s = diff >= 0 ? '+' : '';
+      return s + formatNumber(diff) + ' (' + s + rate.toFixed(2) + '%)';
+    }
+
+    function formatPnL(n) {
+      return (n >= 0 ? '+' : '') + formatNumber(n);
+    }
+
+    function formatRate(r) {
+      return (r >= 0 ? '+' : '') + r.toFixed(2) + '%';
+    }
+
+    function getPnlColor(v) {
+      if (v > 0) return '#C51F2A';
+      if (v < 0) return '#002452';
       return '#000000';
     }
 
-    function formatDiff(diff, diffRate) {
-      const sign = diff > 0 ? '+' : '';
-      return sign + formatNumber(Math.round(diff)) +
-             ' (' + sign + diffRate.toFixed(2) + '%)';
-    }
-
-    // ── 현재가 조회 ──────────────────────────────────────────
+    // ── 현재가 조회 ───────────────────────────────────────────
     async function fetchPrice(code) {
       const url = 'https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/' + code + '.KS';
       try {
@@ -263,11 +230,11 @@
         if (!res.ok) throw new Error('http ' + res.status);
         const json = await res.json();
         const meta = json.chart.result[0].meta;
-        const price    = meta.regularMarketPrice;
+        const price     = meta.regularMarketPrice;
         const prevClose = meta.previousClose;
-        const diff     = price - prevClose;
-        const diffRate = diff / prevClose * 100;
-        const itemName = meta.longName || meta.shortName || code;
+        const diff      = price - prevClose;
+        const diffRate  = diff / prevClose * 100;
+        const itemName  = meta.longName || meta.shortName || code;
         return { itemName, price, diff, diffRate };
       } catch (e) {
         return null;
@@ -277,63 +244,54 @@
     async function fetchAll() {
       for (let i = 0; i < holdings.length; i++) {
         const code = holdings[i].code;
-        const result = await fetchPrice(code);
-        if (result) {
-          priceData[code] = result;
-        } else {
-          priceData[code] = null;  // 조회불가 표시용
-        }
-        renderTable();  // 종목별로 조회 완료 즉시 반영
+        priceData[code] = await fetchPrice(code); // null on failure
+        renderTable();
       }
-
-      // 마지막 조회 시각 업데이트
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      const ss = String(now.getSeconds()).padStart(2, '0');
-      document.getElementById('last-updated').textContent = hh + ':' + mm + ':' + ss;
+      document.getElementById('last-updated').textContent =
+        String(now.getHours()).padStart(2,'0') + ':' +
+        String(now.getMinutes()).padStart(2,'0') + ':' +
+        String(now.getSeconds()).padStart(2,'0');
     }
 
-    // ── 렌더링 ───────────────────────────────────────────────
+    // ── 렌더링 ────────────────────────────────────────────────
     function renderSummary() {
-      const tbody = document.getElementById('summary-body');
-
+      // 총 매입금액: 현재가 불필요, 항상 계산
       const totalCost = holdings.reduce(function(acc, h) {
         return acc + h.avgPrice * h.quantity;
       }, 0);
 
-      let totalValue = 0;
-      let hasAllPrices = holdings.length > 0;
+      // 총 평가금액: 조회된 종목만 합산
+      let totalValue   = 0;
+      let valueCovered = 0; // 현재가 있는 종목 수
       holdings.forEach(function(h) {
         const pd = priceData[h.code];
-        if (pd) {
-          totalValue += pd.price * h.quantity;
-        } else {
-          hasAllPrices = false;
-        }
+        if (pd) { totalValue += pd.price * h.quantity; valueCovered++; }
       });
 
-      const costText  = totalCost  > 0 ? formatNumber(totalCost)  : '';
-      const valueText = hasAllPrices && totalValue > 0 ? formatNumber(Math.round(totalValue)) : '';
+      const allPriced = holdings.length > 0 && valueCovered === holdings.length;
+
+      const costText  = totalCost > 0 ? formatNumber(totalCost) : '';
+      const valueText = valueCovered > 0 ? formatNumber(totalValue) : '';
 
       let pnlText = '', pnlColor = '#000000', returnText = '';
-      if (hasAllPrices && totalCost > 0 && totalValue > 0) {
+      if (allPriced && totalCost > 0) {
         const pnl = totalValue - totalCost;
-        pnlColor = getPnlColor(pnl);
-        pnlText  = (pnl >= 0 ? '+' : '') + formatNumber(Math.round(pnl));
-        returnText = (pnl >= 0 ? '+' : '') + (pnl / totalCost * 100).toFixed(2) + '%';
+        pnlColor   = getPnlColor(pnl);
+        pnlText    = formatPnL(pnl);
+        returnText = formatRate(pnl / totalCost * 100);
       }
 
-      tbody.innerHTML =
+      document.getElementById('summary-body').innerHTML =
         '<tr class="summary-row">' +
           '<td></td>' +
           '<td></td>' +
           '<td></td>' +
           '<td></td>' +
-          '<td style="color:#000000">' + costText + '</td>' +
+          '<td style="color:#000000">' + costText  + '</td>' +
           '<td></td>' +
-          '<td>' + valueText + '</td>' +
-          '<td style="color:' + pnlColor + '">' + pnlText + '</td>' +
+          '<td style="color:#000000">' + valueText + '</td>' +
+          '<td style="color:' + pnlColor + '">' + pnlText    + '</td>' +
           '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
           '<td></td>' +
         '</tr>';
@@ -342,35 +300,25 @@
     function makeEditRow(code, qty, avgCost, isNew) {
       const tr = document.createElement('tr');
       tr.className = 'edit-row';
-
-      const codeInput = '<input id="edit-code" type="text" maxlength="6" value="' + (code || '') + '" placeholder="종목코드">';
-      const qtyInput  = '<input id="edit-qty"  type="number" min="0" value="' + (qty  || '') + '" placeholder="수량">';
-      const costInput = '<input id="edit-cost" type="number" min="0" value="' + (avgCost || '') + '" placeholder="평균단가">';
       const deleteBtn = isNew ? '' : '<button class="btn-delete" onclick="handleDelete()">Delete</button>';
-
       tr.innerHTML =
         '<td></td>' +
-        '<td>' + codeInput + '</td>' +
-        '<td>-</td>' +
-        '<td>-</td>' +
-        '<td>' + costInput + '</td>' +
-        '<td>' + qtyInput  + '</td>' +
-        '<td></td>' +
-        '<td></td>' +
-        '<td></td>' +
-        '<td>' +
-          '<div class="edit-btn-group">' +
-            '<button onclick="handleSave()">Save</button>' +
-            '<button onclick="handleCancel()">Cancel</button>' +
-            deleteBtn +
-          '</div>' +
-        '</td>';
-
+        '<td><input id="edit-code" type="text"   maxlength="6" value="' + (code   || '') + '" placeholder="종목코드"></td>' +
+        '<td style="text-align:right;color:#999999">-</td>' +
+        '<td style="text-align:right;color:#999999">-</td>' +
+        '<td><input id="edit-cost" type="number" min="1"       value="' + (avgCost|| '') + '" placeholder="평균단가"></td>' +
+        '<td><input id="edit-qty"  type="number" min="1"       value="' + (qty    || '') + '" placeholder="수량"></td>' +
+        '<td></td><td></td><td></td>' +
+        '<td><div class="edit-btn-group">' +
+          '<button onclick="handleSave()">Save</button>' +
+          '<button onclick="handleCancel()">Cancel</button>' +
+          deleteBtn +
+        '</div></td>';
       return tr;
     }
 
     function renderRows() {
-      const tbody = document.getElementById('holdings-body');
+      const tbody    = document.getElementById('holdings-body');
       tbody.innerHTML = '';
       const isEditing = editingIndex !== null;
 
@@ -380,51 +328,52 @@
           return;
         }
 
-        const pd = priceData[h.code];
-        const editDisabled = isEditing ? ' disabled' : '';
+        const pd  = priceData[h.code];
+        const dis = isEditing ? ' disabled' : '';
 
-        let nameText    = pd ? pd.itemName : '';
-        let currentText = '-';
-        let currentColor = '#000000';
-        let diffText    = '-';
-        let diffColor   = '#000000';
-        let valueText   = '';
-        let pnlText     = '';
-        let pnlColor    = '#000000';
-        let returnText  = '';
+        // 기본값
+        let nameText     = '';
+        let curText      = '-', curColor  = '#000000';
+        let diffText     = '-', diffColor = '#000000';
+        let valueText    = '';
+        let pnlText      = '', pnlColor   = '#000000';
+        let returnText   = '';
 
         if (pd === null) {
-          // 조회 시도했으나 실패
-          currentText  = '조회불가';
-          currentColor = '#999999';
-          diffText     = '';
-        } else if (pd) {
-          currentText  = formatNumber(pd.price);
-          currentColor = getPnlColor(pd.diff);
-          diffText     = formatDiff(pd.diff, pd.diffRate);
-          diffColor    = getPnlColor(pd.diff);
+          // 조회 실패
+          curText  = '조회불가';
+          curColor = '#999999';
+          diffText = '';
+        } else if (pd !== undefined) {
+          // 조회 성공
+          nameText  = pd.itemName;
+          curText   = formatNumber(pd.price);
+          curColor  = getPnlColor(pd.diff);
+          diffText  = formatDiff(pd.diff, pd.diffRate);
+          diffColor = getPnlColor(pd.diff);
 
-          const value = pd.price * h.quantity;
-          const pnl   = value - h.avgPrice * h.quantity;
-          valueText  = formatNumber(Math.round(value));
-          pnlText    = (pnl >= 0 ? '+' : '') + formatNumber(Math.round(pnl));
+          const cost  = h.avgPrice * h.quantity;
+          const value = pd.price   * h.quantity;
+          const pnl   = value - cost;
+          valueText  = formatNumber(value);
+          pnlText    = formatPnL(pnl);
           pnlColor   = getPnlColor(pnl);
-          returnText = (pnl >= 0 ? '+' : '') + (pnl / (h.avgPrice * h.quantity) * 100).toFixed(2) + '%';
+          returnText = formatRate(pnl / cost * 100);
         }
 
         const tr = document.createElement('tr');
         tr.innerHTML =
           '<td>' + nameText + '</td>' +
-          '<td>' + h.code + '</td>' +
-          '<td style="color:' + currentColor + '">' + currentText + '</td>' +
-          '<td style="color:' + diffColor + '">' + diffText + '</td>' +
-          '<td>' + formatNumber(h.avgPrice) + '</td>' +
-          '<td>' + formatNumber(h.quantity) + '</td>' +
-          '<td>' + valueText + '</td>' +
-          '<td style="color:' + pnlColor + '">' + pnlText + '</td>' +
-          '<td style="color:' + pnlColor + '">' + returnText + '</td>' +
+          '<td>' + h.code  + '</td>' +
+          '<td style="color:' + curColor  + '">' + curText    + '</td>' +
+          '<td style="color:' + diffColor + '">' + diffText   + '</td>' +
+          '<td style="color:#000000">'            + formatNumber(h.avgPrice) + '</td>' +
+          '<td style="color:#000000">'            + formatNumber(h.quantity) + '</td>' +
+          '<td style="color:#000000">'            + valueText  + '</td>' +
+          '<td style="color:' + pnlColor  + '">' + pnlText    + '</td>' +
+          '<td style="color:' + pnlColor  + '">' + returnText + '</td>' +
           '<td style="text-align:center">' +
-            '<button class="btn-row-edit"' + editDisabled + ' onclick="startEdit(' + idx + ')">Edit</button>' +
+            '<button class="btn-row-edit"' + dis + ' onclick="startEdit(' + idx + ')">Edit</button>' +
           '</td>';
         tbody.appendChild(tr);
       });
@@ -435,8 +384,8 @@
     }
 
     function renderAddButton() {
-      const wrap = document.getElementById('btn-add-wrap');
-      wrap.style.display = (editingIndex === null && holdings.length < MAX_HOLDINGS) ? '' : 'none';
+      document.getElementById('btn-add-wrap').style.display =
+        (editingIndex === null && holdings.length < MAX_HOLDINGS) ? '' : 'none';
     }
 
     function renderTable() {
@@ -445,35 +394,33 @@
       renderAddButton();
     }
 
-    // ── 편집 핸들러 ──────────────────────────────────────────
+    // ── 편집 핸들러 ───────────────────────────────────────────
     function startEdit(idx) {
       if (editingIndex !== null) return;
       editingIndex = idx;
       renderTable();
-      const codeEl = document.getElementById('edit-code');
-      if (codeEl) codeEl.focus();
+      const el = document.getElementById('edit-code');
+      if (el) el.focus();
     }
 
     function handleSave() {
       const codeEl = document.getElementById('edit-code');
-      const qtyEl  = document.getElementById('edit-qty');
       const costEl = document.getElementById('edit-cost');
-
+      const qtyEl  = document.getElementById('edit-qty');
       const code    = codeEl.value.trim();
-      const qty     = parseInt(qtyEl.value, 10);
       const avgCost = parseInt(costEl.value, 10);
+      const qty     = parseInt(qtyEl.value,  10);
 
-      if (!code || isNaN(qty) || qty <= 0 || isNaN(avgCost) || avgCost <= 0) {
+      if (!code || isNaN(avgCost) || avgCost <= 0 || isNaN(qty) || qty <= 0) {
         codeEl.focus();
         return;
       }
 
       if (editingIndex === 'new') {
-        holdings.push({ code: code, quantity: qty, avgPrice: avgCost });
+        holdings.push({ code, quantity: qty, avgPrice: avgCost });
       } else {
-        holdings[editingIndex] = { code: code, quantity: qty, avgPrice: avgCost };
+        holdings[editingIndex] = { code, quantity: qty, avgPrice: avgCost };
       }
-
       editingIndex = null;
       saveHoldings();
       renderTable();
@@ -492,13 +439,13 @@
       renderTable();
     }
 
-    // ── 이벤트 바인딩 ────────────────────────────────────────
+    // ── 이벤트 ────────────────────────────────────────────────
     document.getElementById('btn-add').addEventListener('click', function() {
       if (editingIndex !== null || holdings.length >= MAX_HOLDINGS) return;
       editingIndex = 'new';
       renderTable();
-      const codeEl = document.getElementById('edit-code');
-      if (codeEl) codeEl.focus();
+      const el = document.getElementById('edit-code');
+      if (el) el.focus();
     });
 
     document.getElementById('btn-refresh').addEventListener('click', function() {
@@ -506,12 +453,10 @@
       fetchAll();
     });
 
-    // ── 초기화 ───────────────────────────────────────────────
+    // ── 초기화 ────────────────────────────────────────────────
     loadHoldings();
     renderTable();
-    if (holdings.length > 0) {
-      fetchAll();
-    }
+    if (holdings.length > 0) fetchAll();
   </script>
 </body>
 </html>
