@@ -70,6 +70,76 @@
       text-align: center;
     }
 
+    tr.edit-row td {
+      background-color: #FFFDE7;
+      border: 1px solid #D0D0D0;
+      padding: 3px 6px;
+    }
+
+    tr.edit-row input {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      font-size: 12px;
+      border: 1px solid #B0B0B0;
+      padding: 1px 4px;
+      width: 100%;
+      text-align: right;
+      background-color: #FFFFFF;
+    }
+
+    tr.edit-row input:focus {
+      outline: 1px solid #888888;
+    }
+
+    .edit-btn-group {
+      display: flex;
+      gap: 3px;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .edit-btn-group button {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      font-size: 11px;
+      padding: 1px 6px;
+      cursor: pointer;
+      border: 1px solid #B0B0B0;
+      background: none;
+      color: #333333;
+    }
+
+    .edit-btn-group button:hover {
+      background-color: #F2F2F2;
+    }
+
+    .edit-btn-group button.btn-delete {
+      color: #C51F2A;
+      border-color: #C51F2A;
+    }
+
+    .edit-btn-group button.btn-delete:hover {
+      background-color: #FFF0F0;
+    }
+
+    .btn-row-edit {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      font-size: 11px;
+      padding: 1px 6px;
+      cursor: pointer;
+      border: 1px solid #B0B0B0;
+      background: none;
+      color: #333333;
+    }
+
+    .btn-row-edit:hover:not(:disabled) {
+      background-color: #F2F2F2;
+    }
+
+    .btn-row-edit:disabled {
+      color: #B0B0B0;
+      border-color: #D0D0D0;
+      cursor: default;
+    }
+
     #btn-add-wrap {
       margin-top: 6px;
     }
@@ -119,6 +189,9 @@
 
     // holdings 배열: [{code, quantity, avgPrice}]
     let holdings = [];
+
+    // 편집 상태: null이면 편집 없음, 'new'면 신규 추가, 숫자면 해당 인덱스 편집
+    let editingIndex = null;
 
     function saveHoldings() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
@@ -171,12 +244,49 @@
         '</tr>';
     }
 
+    function makeEditRow(code, qty, avgCost, isNew) {
+      const tr = document.createElement('tr');
+      tr.className = 'edit-row';
+
+      const codeInput = '<input id="edit-code" type="text" maxlength="6" value="' + (code || '') + '" placeholder="종목코드">';
+      const qtyInput  = '<input id="edit-qty"  type="number" min="0" value="' + (qty  || '') + '" placeholder="수량">';
+      const costInput = '<input id="edit-cost" type="number" min="0" value="' + (avgCost || '') + '" placeholder="평균단가">';
+      const deleteBtn = isNew ? '' : '<button class="btn-delete" onclick="handleDelete()">Delete</button>';
+
+      tr.innerHTML =
+        '<td></td>' +
+        '<td>' + codeInput + '</td>' +
+        '<td>-</td>' +
+        '<td>-</td>' +
+        '<td>' + costInput + '</td>' +
+        '<td>' + qtyInput  + '</td>' +
+        '<td></td>' +
+        '<td></td>' +
+        '<td></td>' +
+        '<td>' +
+          '<div class="edit-btn-group">' +
+            '<button onclick="handleSave()">Save</button>' +
+            '<button onclick="handleCancel()">Cancel</button>' +
+            deleteBtn +
+          '</div>' +
+        '</td>';
+
+      return tr;
+    }
+
     function renderRows() {
       const tbody = document.getElementById('holdings-body');
       tbody.innerHTML = '';
+      const isEditing = editingIndex !== null;
 
-      holdings.forEach(function(h) {
+      holdings.forEach(function(h, idx) {
+        if (editingIndex === idx) {
+          tbody.appendChild(makeEditRow(h.code, h.quantity, h.avgPrice, false));
+          return;
+        }
+
         const tr = document.createElement('tr');
+        const editDisabled = isEditing ? ' disabled' : '';
         tr.innerHTML =
           '<td></td>' +
           '<td>' + h.code + '</td>' +
@@ -187,14 +297,22 @@
           '<td></td>' +
           '<td></td>' +
           '<td></td>' +
-          '<td></td>';
+          '<td style="text-align:center">' +
+            '<button class="btn-row-edit"' + editDisabled + ' onclick="startEdit(' + idx + ')">Edit</button>' +
+          '</td>';
         tbody.appendChild(tr);
       });
+
+      // 신규 추가 편집 행
+      if (editingIndex === 'new') {
+        tbody.appendChild(makeEditRow('', '', '', true));
+      }
     }
 
     function renderAddButton() {
       const wrap = document.getElementById('btn-add-wrap');
-      wrap.style.display = holdings.length < MAX_HOLDINGS ? '' : 'none';
+      // 편집 중이거나 MAX 초과 시 숨김
+      wrap.style.display = (editingIndex === null && holdings.length < MAX_HOLDINGS) ? '' : 'none';
     }
 
     function renderTable() {
@@ -203,9 +321,58 @@
       renderAddButton();
     }
 
+    function startEdit(idx) {
+      if (editingIndex !== null) return;
+      editingIndex = idx;
+      renderTable();
+      const codeEl = document.getElementById('edit-code');
+      if (codeEl) codeEl.focus();
+    }
+
+    function handleSave() {
+      const codeEl = document.getElementById('edit-code');
+      const qtyEl  = document.getElementById('edit-qty');
+      const costEl = document.getElementById('edit-cost');
+
+      const code    = codeEl.value.trim();
+      const qty     = parseInt(qtyEl.value, 10);
+      const avgCost = parseInt(costEl.value, 10);
+
+      if (!code || isNaN(qty) || qty <= 0 || isNaN(avgCost) || avgCost <= 0) {
+        codeEl.focus();
+        return;
+      }
+
+      if (editingIndex === 'new') {
+        holdings.push({ code: code, quantity: qty, avgPrice: avgCost });
+      } else {
+        holdings[editingIndex] = { code: code, quantity: qty, avgPrice: avgCost };
+      }
+
+      editingIndex = null;
+      saveHoldings();
+      renderTable();
+    }
+
+    function handleCancel() {
+      editingIndex = null;
+      renderTable();
+    }
+
+    function handleDelete() {
+      if (typeof editingIndex !== 'number') return;
+      holdings.splice(editingIndex, 1);
+      editingIndex = null;
+      saveHoldings();
+      renderTable();
+    }
+
     document.getElementById('btn-add').addEventListener('click', function() {
-      if (holdings.length >= MAX_HOLDINGS) return;
-      // 추가 로직은 이후 단계에서 구현
+      if (editingIndex !== null || holdings.length >= MAX_HOLDINGS) return;
+      editingIndex = 'new';
+      renderTable();
+      const codeEl = document.getElementById('edit-code');
+      if (codeEl) codeEl.focus();
     });
 
     loadHoldings();
